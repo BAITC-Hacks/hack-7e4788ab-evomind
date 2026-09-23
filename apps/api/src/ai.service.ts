@@ -10,21 +10,89 @@ import {
 @Injectable()
 export class EnvironmentAiProvider {
   async analyze(input: AnalyzeTaskInput): Promise<unknown> {
-    const url = process.env.AI_API_URL;
-    if (!url) throw new Error('AI_API_URL is not configured');
-    const response = await fetch(url, {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error('OPENAI_API_KEY is not configured');
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        ...(process.env.AI_API_KEY ? { authorization: `Bearer ${process.env.AI_API_KEY}` } : {}),
+        authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(input),
-      signal: AbortSignal.timeout(3_000),
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: [
+              'Ты бизнес-аналитик. Сформируй от 3 до 6 коротких уточняющих вопросов на русском языке.',
+              'Не добавляй факты, которых нет во вводе пользователя.',
+              'В suggestedCard копируй только дословно подтверждённые значения; неизвестные поля оставляй пустыми.',
+            ].join(' '),
+          },
+          { role: 'user', content: JSON.stringify(input) },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'clarification_result',
+            strict: true,
+            schema: clarificationJsonSchema,
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(15_000),
     });
-    if (!response.ok) throw new Error(`AI provider returned HTTP ${response.status}`);
-    return response.json();
+    if (!response.ok) throw new Error(`OpenAI returned HTTP ${response.status}`);
+    const payload = await response.json() as ChatCompletionResponse;
+    const message = payload.choices?.[0]?.message;
+    if (message?.refusal) throw new Error(`OpenAI refused the request: ${message.refusal}`);
+    if (!message?.content) throw new Error('OpenAI returned no structured content');
+    return JSON.parse(message.content) as unknown;
   }
 }
+
+type ChatCompletionResponse = {
+  choices?: Array<{ message?: { content?: string | null; refusal?: string | null } }>;
+};
+
+const cardProperties = Object.fromEntries([
+  'title', 'context', 'need', 'users', 'data', 'constraints', 'expectedResult',
+  'successCriteria', 'contact', 'interactionFormat', 'topic',
+].map((field) => [field, { type: 'string' }]));
+
+const clarificationJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['questions', 'suggestedCard', 'mode', 'warnings'],
+  properties: {
+    questions: {
+      type: 'array',
+      minItems: 3,
+      maxItems: 6,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'field', 'text'],
+        properties: {
+          id: { type: 'string' },
+          field: {
+            type: 'string',
+            enum: ['title', 'context', 'need', 'users', 'data', 'constraints', 'expectedResult', 'successCriteria', 'contact', 'interactionFormat', 'topic'],
+          },
+          text: { type: 'string' },
+        },
+      },
+    },
+    suggestedCard: {
+      type: 'object',
+      additionalProperties: false,
+      required: Object.keys(cardProperties),
+      properties: cardProperties,
+    },
+    mode: { type: 'string', enum: ['ai'] },
+    warnings: { type: 'array', items: { type: 'string' } },
+  },
+};
 
 const questionBank: ClarificationQuestion[] = [
   { id: 'q-data', field: 'data', text: 'Какие данные уже доступны для решения задачи?', hint: 'Формат, объём и ограничения доступа' },
