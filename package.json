@@ -1,0 +1,19 @@
+{
+  "name": "evomind",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.30.0",
+  "scripts": {
+    "build": "pnpm --filter @evomind/contracts build && pnpm --filter @evomind/db build && pnpm --filter @evomind/api build",
+    "typecheck": "pnpm --filter @evomind/contracts typecheck && pnpm --filter @evomind/db typecheck && pnpm --filter @evomind/api typecheck",
+    "test": "pnpm --filter @evomind/api test",
+    "dev:api": "pnpm --filter @evomind/api dev",
+    "start:api": "pnpm --filter @evomind/api start",
+    "db:generate": "pnpm --filter @evomind/db generate",
+    "db:migrate": "pnpm --filter @evomind/db migrate",
+    "db:seed": "pnpm --filter @evomind/db seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}
