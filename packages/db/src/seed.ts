@@ -48,9 +48,18 @@ const proposalRows = Array.from({ length: 5 }, (_, index) => ({
 
 const { db, sqlite } = createDatabase(process.env.DATABASE_URL ?? defaultDatabasePath);
 db.transaction((tx) => {
-  tx.insert(taskCards).values(taskRows).onConflictDoNothing().run();
-  tx.insert(teams).values(teamRows).onConflictDoNothing().run();
-  tx.insert(proposals).values(proposalRows).onConflictDoNothing().run();
+  for (const row of taskRows) {
+    const { id, ...values } = row;
+    tx.insert(taskCards).values(row).onConflictDoUpdate({ target: taskCards.id, set: values }).run();
+  }
+  for (const row of teamRows) {
+    const { id, ...values } = row;
+    tx.insert(teams).values(row).onConflictDoUpdate({ target: teams.id, set: values }).run();
+  }
+  for (const row of proposalRows) {
+    const { id, ...values } = row;
+    tx.insert(proposals).values(row).onConflictDoUpdate({ target: proposals.id, set: values }).run();
+  }
 });
 const counts = {
   tasks: db.select({ value: count() }).from(taskCards).get()?.value ?? 0,
