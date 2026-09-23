@@ -3,7 +3,7 @@ import { ApiBadRequestResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/
 import {
   analyzeTaskInputSchema,
   readinessLevelSchema,
-  taskCardInputSchema,
+  createTaskInputSchema,
   updateTaskInputSchema,
   type AnalyzeTaskInput,
   type ReadinessLevel,
@@ -31,7 +31,7 @@ export class TasksController {
   @Post()
   @ApiOperation({ summary: 'Create a draft and calculate its score' })
   @ApiBadRequestResponse({ description: 'Input does not match TaskCardInput' })
-  create(@Body(new ZodValidationPipe(taskCardInputSchema)) input: TaskCardInput) {
+  create(@Body(new ZodValidationPipe(createTaskInputSchema)) input: TaskCardInput) {
     return this.tasks.create(input);
   }
 

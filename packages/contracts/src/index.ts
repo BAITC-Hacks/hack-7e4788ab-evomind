@@ -43,6 +43,12 @@ export const taskCardInputSchema = taskCardSchema.omit({
   missingFields: true,
 }).partial({ status: true });
 
+export const createTaskInputSchema = taskCardInputSchema.extend({
+  title: z.string().trim().min(1, 'Название задачи обязательно'),
+  context: z.string().trim().min(1, 'Контекст задачи обязателен'),
+  need: z.string().trim().min(1, 'Бизнес-потребность обязательна'),
+});
+
 // Форма редактирования карточки на фронтенде: те же поля, что в
 // taskCardInputSchema, но с человекочитаемыми сообщениями валидации для
 // react-hook-form. Имена полей совпадают с taskCardSchema (канонической
@@ -142,6 +148,7 @@ export type ProposalStatus = z.infer<typeof proposalStatusSchema>;
 export type ScoreBreakdown = z.infer<typeof scoreBreakdownSchema>;
 export type TaskCard = z.infer<typeof taskCardSchema>;
 export type TaskCardInput = z.infer<typeof taskCardInputSchema>;
+export type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
 export type SuggestedCard = z.infer<typeof suggestedCardSchema>;
 export type AnalyzeTaskInput = z.infer<typeof analyzeTaskInputSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskInputSchema>;
