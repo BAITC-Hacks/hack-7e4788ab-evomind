@@ -1,0 +1,10 @@
+{
+  "name": "evomind",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "build": "corepack pnpm --filter @evomind/web build",
+    "typecheck": "corepack pnpm --filter @evomind/contracts typecheck && corepack pnpm --filter @evomind/web typecheck",
+    "test": "corepack pnpm --filter @evomind/web test"
+  }
+}
