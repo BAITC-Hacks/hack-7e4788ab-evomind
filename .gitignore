@@ -1,7 +1,10 @@
 node_modules/
 dist/
+.next/
 coverage/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.tsbuildinfo
 .env
+.env.local

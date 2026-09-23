@@ -43,9 +43,51 @@ export const taskCardInputSchema = taskCardSchema.omit({
   missingFields: true,
 }).partial({ status: true });
 
+// Форма редактирования карточки на фронтенде: те же поля, что в
+// taskCardInputSchema, но с человекочитаемыми сообщениями валидации для
+// react-hook-form. Имена полей совпадают с taskCardSchema (канонической
+// схемой backend), чтобы данные с формы напрямую соответствовали API.
+export const taskEditorSchema = taskCardSchema.pick({
+  title: true,
+  context: true,
+  need: true,
+  users: true,
+  data: true,
+  constraints: true,
+  expectedResult: true,
+  successCriteria: true,
+  contact: true,
+  interactionFormat: true,
+  topic: true,
+}).extend({
+  title: z.string().min(3, 'Добавьте понятное название'),
+  context: z.string().min(10, 'Опишите контекст подробнее'),
+  need: z.string().min(10, 'Сформулируйте потребность'),
+  users: z.string().min(3, 'Укажите пользователей'),
+  data: z.string().min(3, 'Опишите доступные данные'),
+  constraints: z.string().min(3, 'Укажите ограничения'),
+  expectedResult: z.string().min(5, 'Опишите ожидаемый результат'),
+  successCriteria: z.string().min(5, 'Добавьте измеримый критерий'),
+  contact: z.string().min(3, 'Укажите контакт'),
+  interactionFormat: z.string().min(3, 'Укажите формат взаимодействия'),
+  topic: z.string().min(2, 'Укажите тему'),
+});
+
+export const clarificationQuestionSchema = z.object({
+  id: z.string(),
+  field: taskEditorSchema.keyof(),
+  text: z.string(),
+  hint: z.string().optional(),
+});
+
+// Предложенный AI черновик карточки намеренно неполный (задача
+// clarification — как раз выявить недостающие поля), поэтому все поля
+// опциональны в отличие от taskCardInputSchema.
+export const suggestedCardSchema = taskCardInputSchema.partial();
+
 export const clarificationResultSchema = z.object({
-  questions: z.array(z.string().min(1)).min(3),
-  suggestedCard: taskCardInputSchema,
+  questions: z.array(clarificationQuestionSchema).min(3),
+  suggestedCard: suggestedCardSchema,
   mode: clarificationModeSchema,
   warnings: z.array(z.string()),
 });
@@ -59,6 +101,20 @@ export const proposalSchema = z.object({
   timeline: z.string().min(1),
   prototypeUrl: z.string().url(),
   status: proposalStatusSchema,
+});
+
+export const proposalInputSchema = proposalSchema.pick({
+  teamId: true,
+  solutionIdea: true,
+  plan: true,
+  timeline: true,
+  prototypeUrl: true,
+}).extend({
+  teamId: z.string().min(2, 'Укажите команду'),
+  solutionIdea: z.string().min(10, 'Раскройте идею решения'),
+  plan: z.string().min(10, 'Добавьте план работ'),
+  timeline: z.string().min(2, 'Укажите срок'),
+  prototypeUrl: z.union([z.literal(''), z.string().url('Введите корректную ссылку')]),
 });
 
 export const apiErrorSchema = z.object({
@@ -75,6 +131,10 @@ export type ProposalStatus = z.infer<typeof proposalStatusSchema>;
 export type ScoreBreakdown = z.infer<typeof scoreBreakdownSchema>;
 export type TaskCard = z.infer<typeof taskCardSchema>;
 export type TaskCardInput = z.infer<typeof taskCardInputSchema>;
+export type SuggestedCard = z.infer<typeof suggestedCardSchema>;
+export type TaskEditorValues = z.infer<typeof taskEditorSchema>;
+export type ClarificationQuestion = z.infer<typeof clarificationQuestionSchema>;
 export type ClarificationResult = z.infer<typeof clarificationResultSchema>;
 export type Proposal = z.infer<typeof proposalSchema>;
+export type ProposalInput = z.infer<typeof proposalInputSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;

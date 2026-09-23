@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: #10251d;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(201, 246, 107, .38), transparent 28rem),
+    radial-gradient(circle at 0% 45%, rgba(223, 245, 232, .75), transparent 30rem),
+    #f7f5ee;
+  font-family: Arial, Helvetica, sans-serif;
+}
+::selection { background: #c9f66b; color: #10251d; }
