@@ -32,7 +32,7 @@ import {
   Users,
 } from "lucide-react";
 import React from "react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
@@ -86,6 +86,7 @@ export function DemoFlow() {
   const [clarification, setClarification] = useState<ClarificationResult | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [task, setTask] = useState<TaskCard | null>(null);
+  const [previousScore, setPreviousScore] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskCard | null>(null);
 
   const analyze = useMutation({
@@ -98,7 +99,10 @@ export function DemoFlow() {
 
   const save = useMutation({
     mutationFn: (values: TaskEditorValues) => api.saveTask(values, task?.id || undefined),
-    onSuccess: (saved) => setTask(saved),
+    onSuccess: (saved) => {
+      if (task?.id) setPreviousScore(task.score);
+      setTask(saved);
+    },
   });
 
   const publish = useMutation({
@@ -130,7 +134,7 @@ export function DemoFlow() {
             <span className="text-xl font-black tracking-tight">EvoMind</span>
           </button>
           <div className="hidden items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-xs font-semibold text-ink/60 md:flex">
-            <span className="size-2 rounded-full bg-green-500" /> Демо-режим · fixtures
+            <span className="size-2 rounded-full bg-green-500" /> API-режим · данные сервера
           </div>
           <Button variant="outline" size="sm" onClick={() => setScreen("catalog")}>Каталог задач</Button>
         </div>
@@ -143,7 +147,7 @@ export function DemoFlow() {
           <QuestionsScreen result={clarification} answers={answers} setAnswers={setAnswers} onBack={() => setScreen("brief")} onContinue={goToEditor} />
         )}
         {screen === "editor" && task && (
-          <EditorScreen task={task} save={save} publish={publish} onBack={() => setScreen("questions")} />
+          <EditorScreen task={task} previousScore={previousScore} save={save} publish={publish} onBack={() => setScreen("questions")} />
         )}
         {screen === "catalog" && (
           <CatalogScreen onRespond={(card) => { setSelectedTask(card); setScreen("proposal"); }} />
@@ -237,7 +241,7 @@ function QuestionsScreen({ result, answers, setAnswers, onBack, onContinue }: { 
   );
 }
 
-function EditorScreen({ task, save, publish, onBack }: { task: TaskCard; save: ReturnType<typeof useMutation<TaskCard, Error, TaskEditorValues>>; publish: ReturnType<typeof useMutation<TaskCard, Error, TaskCard>>; onBack: () => void }) {
+function EditorScreen({ task, previousScore, save, publish, onBack }: { task: TaskCard; previousScore: number | null; save: ReturnType<typeof useMutation<TaskCard, Error, TaskEditorValues>>; publish: ReturnType<typeof useMutation<TaskCard, Error, TaskCard>>; onBack: () => void }) {
   const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm<TaskEditorValues>({ resolver: zodResolver(taskEditorSchema), defaultValues: pickEditorValues(task) });
   const displayed = save.data ?? task;
   const submit = (values: TaskEditorValues) => save.mutate(values, { onSuccess: (result) => reset(pickEditorValues(result)) });
@@ -254,7 +258,7 @@ function EditorScreen({ task, save, publish, onBack }: { task: TaskCard; save: R
           ))}
         </form></CardContent></Card>
         <div className="space-y-5 lg:sticky lg:top-6 lg:self-start">
-          {save.data ? <ScoreCard task={displayed} /> : <Card className="shadow-none"><CardContent><BarChart3 className="text-coral" /><h2 className="mt-4 text-xl font-black">Рейтинг рассчитает сервер</h2><p className="mt-2 text-sm leading-6 text-ink/55">Сохраните подтверждённые данные — мы покажем полученный score, breakdown и рекомендации.</p></CardContent></Card>}
+          {save.data ? <ScoreCard task={displayed} previousScore={previousScore} /> : <Card className="shadow-none"><CardContent><BarChart3 className="text-coral" /><h2 className="mt-4 text-xl font-black">Рейтинг рассчитает сервер</h2><p className="mt-2 text-sm leading-6 text-ink/55">Сохраните подтверждённые данные — мы покажем полученный score, breakdown и рекомендации.</p></CardContent></Card>}
           {save.isError && <ErrorBox message={save.error.message} />}
           {publish.isError && <ErrorBox message={publish.error.message} />}
           <Button form="editor-form" className="w-full" disabled={save.isPending}>{save.isPending ? <><Loader2 className="animate-spin" size={17} /> Сохраняем…</> : <><RefreshCw size={17} /> Сохранить и обновить рейтинг</>}</Button>
@@ -269,12 +273,12 @@ function EditorScreen({ task, save, publish, onBack }: { task: TaskCard; save: R
   );
 }
 
-function ScoreCard({ task }: { task: TaskCard }) {
+function ScoreCard({ task, previousScore }: { task: TaskCard; previousScore: number | null }) {
   const breakdownLabels: Record<keyof TaskCard["scoreBreakdown"], string> = { contextAndNeed: "Контекст и потребность", data: "Данные", expectedResult: "Результат", successCriteria: "Критерии", constraints: "Ограничения", users: "Пользователи", businessContact: "Связь с бизнесом" };
   const max: Record<keyof TaskCard["scoreBreakdown"], number> = { contextAndNeed: 20, data: 20, expectedResult: 15, successCriteria: 15, constraints: 10, users: 10, businessContact: 10 };
   return (
     <Card className="overflow-hidden"><div className="bg-ink p-6 text-white"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-white/50">Рейтинг готовности</p><p className="mt-2 text-6xl font-black">{task.score}<span className="text-xl text-white/35">/100</span></p></div><span className="rounded-full bg-lime px-3 py-2 text-xs font-black text-ink">{readinessLabels[task.readinessLevel]}</span></div></div>
-      <CardContent className="space-y-3 p-6">{Object.entries(task.scoreBreakdown).map(([key, value]) => <div key={key}><div className="mb-1 flex justify-between text-xs font-semibold"><span>{breakdownLabels[key as keyof typeof breakdownLabels]}</span><span>{value}/{max[key as keyof typeof max]}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-ink/10"><div className="h-full rounded-full bg-coral" style={{ width: `${(value / max[key as keyof typeof max]) * 100}%` }} /></div></div>)}
+      <CardContent className="space-y-3 p-6">{previousScore !== null && <p className="rounded-xl bg-mint px-3 py-2 text-xs font-bold">Предыдущий рейтинг сервера: {previousScore}</p>}{Object.entries(task.scoreBreakdown).map(([key, value]) => <div key={key}><div className="mb-1 flex justify-between text-xs font-semibold"><span>{breakdownLabels[key as keyof typeof breakdownLabels]}</span><span>{value}/{max[key as keyof typeof max]}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-ink/10"><div className="h-full rounded-full bg-coral" style={{ width: `${(value / max[key as keyof typeof max]) * 100}%` }} /></div></div>)}
         {task.missingFields.length > 0 && <div className="mt-4 rounded-2xl bg-amber-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-amber-900">Что улучшить</p><ul className="mt-2 space-y-1 text-xs text-amber-900">{task.missingFields.map((field) => <li key={field}>• {field}</li>)}</ul></div>}
       </CardContent>
     </Card>
@@ -316,7 +320,7 @@ function DecisionsScreen({ task, onBack }: { task: TaskCard; onBack: () => void 
   const queryClient = useQueryClient();
   const proposals = useQuery({ queryKey: ["proposals", task.id], queryFn: () => api.listProposals(task.id) });
   const decide = useMutation({ mutationFn: ({ id, status }: { id: string; status: "accepted" | "rejected" }) => api.setProposalStatus(id, status), onSuccess: (updated) => queryClient.setQueryData<Proposal[]>(["proposals", task.id], (old = []) => old.map((item) => item.id === updated.id ? updated : item)) });
-  return <section className="mx-auto max-w-5xl"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 6 · решение бизнеса</p><h1 className="mt-2 text-4xl font-black">Решение остаётся за человеком</h1><p className="mt-2 text-ink/55">EvoMind не назначает команду автоматически. Можно принять несколько предложений.</p></div><Button variant="outline" onClick={onBack}>Вернуться в каталог</Button></div>{proposals.isPending ? <LoadingCards /> : proposals.isError ? <ErrorBox message="Не удалось загрузить отклики" /> : proposals.data?.length === 0 ? <EmptyState /> : <div className="mt-7 space-y-5">{proposals.data?.map((proposal) => <Card key={proposal.id} className="shadow-none"><CardContent><div className="flex flex-col justify-between gap-5 md:flex-row"><div className="max-w-2xl"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-mint"><Users size={19} /></span><div><h2 className="font-black">{proposal.teamId}</h2><p className="text-xs text-ink/45">Отклик на «{task.title}»</p></div></div><p className="mt-5 font-semibold">{proposal.solutionIdea}</p><p className="mt-3 text-sm leading-6 text-ink/55">{proposal.plan}</p><div className="mt-4 flex gap-5 text-xs font-bold text-ink/50"><span className="flex items-center gap-1"><Clock3 size={14} /> {proposal.timeline}</span>{proposal.prototypeUrl && <a className="underline" href={proposal.prototypeUrl}>Прототип</a>}</div></div><div className="min-w-48">{proposal.status === "pending" ? <div className="space-y-2"><Button className="w-full" variant="accent" onClick={() => decide.mutate({ id: proposal.id, status: "accepted" })}>Принять</Button><Button className="w-full" variant="outline" onClick={() => decide.mutate({ id: proposal.id, status: "rejected" })}>Отклонить</Button></div> : <div role="status" className={cn("rounded-2xl p-4 text-center text-sm font-black", proposal.status === "accepted" ? "bg-green-100 text-green-800" : "bg-red-50 text-red-700")}>{proposal.status === "accepted" ? "Предложение принято" : "Предложение отклонено"}</div>}</div></div></CardContent></Card>)}</div>}</section>;
+  return <section className="mx-auto max-w-5xl"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 6 · решение бизнеса</p><h1 className="mt-2 text-4xl font-black">Решение остаётся за человеком</h1><p className="mt-2 text-ink/55">EvoMind не назначает команду автоматически. Можно принять несколько предложений.</p></div><Button variant="outline" onClick={onBack}>Вернуться в каталог</Button></div>{proposals.isPending ? <LoadingCards /> : proposals.isError ? <div className="mt-7"><ErrorBox message="Не удалось загрузить отклики" /><Button className="mt-4" onClick={() => proposals.refetch()}>Повторить</Button></div> : proposals.data?.length === 0 ? <EmptyState /> : <div className="mt-7 space-y-5">{decide.isError && <ErrorBox message={decide.error.message} />}{proposals.data?.map((proposal) => <Card key={proposal.id} className="shadow-none"><CardContent><div className="flex flex-col justify-between gap-5 md:flex-row"><div className="max-w-2xl"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-mint"><Users size={19} /></span><div><h2 className="font-black">{proposal.teamId}</h2><p className="text-xs text-ink/45">Отклик на «{task.title}»</p></div></div><p className="mt-5 font-semibold">{proposal.solutionIdea}</p><p className="mt-3 text-sm leading-6 text-ink/55">{proposal.plan}</p><div className="mt-4 flex gap-5 text-xs font-bold text-ink/50"><span className="flex items-center gap-1"><Clock3 size={14} /> {proposal.timeline}</span>{proposal.prototypeUrl && <a className="underline" href={proposal.prototypeUrl}>Прототип</a>}</div></div><div className="min-w-48">{proposal.status === "pending" ? <div className="space-y-2"><Button className="w-full" variant="accent" disabled={decide.isPending} onClick={() => decide.mutate({ id: proposal.id, status: "accepted" })}>Принять</Button><Button className="w-full" variant="outline" disabled={decide.isPending} onClick={() => decide.mutate({ id: proposal.id, status: "rejected" })}>Отклонить</Button></div> : <div role="status" className={cn("rounded-2xl p-4 text-center text-sm font-black", proposal.status === "accepted" ? "bg-green-100 text-green-800" : "bg-red-50 text-red-700")}>{proposal.status === "accepted" ? "Предложение принято" : "Предложение отклонено"}</div>}</div></div></CardContent></Card>)}</div>}</section>;
 }
 
 function SelectControl({ label, icon, value, onChange, options, includeAll = true }: { label: string; icon?: React.ReactNode; value: string; onChange: (value: string) => void; options: readonly (readonly [string, string])[]; includeAll?: boolean }) {
