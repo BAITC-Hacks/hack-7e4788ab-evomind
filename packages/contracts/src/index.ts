@@ -85,6 +85,13 @@ export const clarificationQuestionSchema = z.object({
 // опциональны в отличие от taskCardInputSchema.
 export const suggestedCardSchema = taskCardInputSchema.partial();
 
+export const analyzeTaskInputSchema = z.object({
+  description: z.string().trim().min(1),
+  knownFields: suggestedCardSchema.optional().default({}),
+});
+
+export const updateTaskInputSchema = taskCardInputSchema.partial().omit({ status: true });
+
 export const clarificationResultSchema = z.object({
   questions: z.array(clarificationQuestionSchema).min(3),
   suggestedCard: suggestedCardSchema,
@@ -117,6 +124,10 @@ export const proposalInputSchema = proposalSchema.pick({
   prototypeUrl: z.union([z.literal(''), z.string().url('Введите корректную ссылку')]),
 });
 
+export const proposalStatusUpdateSchema = z.object({
+  status: z.enum(['accepted', 'rejected']),
+});
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -132,9 +143,12 @@ export type ScoreBreakdown = z.infer<typeof scoreBreakdownSchema>;
 export type TaskCard = z.infer<typeof taskCardSchema>;
 export type TaskCardInput = z.infer<typeof taskCardInputSchema>;
 export type SuggestedCard = z.infer<typeof suggestedCardSchema>;
+export type AnalyzeTaskInput = z.infer<typeof analyzeTaskInputSchema>;
+export type UpdateTaskInput = z.infer<typeof updateTaskInputSchema>;
 export type TaskEditorValues = z.infer<typeof taskEditorSchema>;
 export type ClarificationQuestion = z.infer<typeof clarificationQuestionSchema>;
 export type ClarificationResult = z.infer<typeof clarificationResultSchema>;
 export type Proposal = z.infer<typeof proposalSchema>;
 export type ProposalInput = z.infer<typeof proposalInputSchema>;
+export type ProposalStatusUpdate = z.infer<typeof proposalStatusUpdateSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
