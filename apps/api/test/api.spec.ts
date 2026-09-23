@@ -23,7 +23,7 @@ describe('domain API', () => {
   beforeAll(async () => {
     rmSync(databasePath, { force: true });
     process.env.DATABASE_URL = databasePath;
-    delete process.env.AI_API_URL;
+    delete process.env.OPENAI_API_KEY;
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = configureApp(moduleRef.createNestApplication());
     await app.init();
