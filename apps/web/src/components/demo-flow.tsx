@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   proposalInputSchema,
-  taskEditorSchema,
+  taskCardInputSchema,
   type ClarificationResult,
   type Proposal,
   type ProposalInput,
@@ -47,6 +47,11 @@ type Screen = "brief" | "questions" | "editor" | "catalog" | "proposal" | "decis
 
 const briefSchema = z.object({ description: z.string().min(12, "Добавьте хотя бы одно-два предложения") });
 type BriefValues = z.infer<typeof briefSchema>;
+const draftEditorSchema = taskCardInputSchema.omit({ status: true });
+const proposalFormSchema = proposalInputSchema.refine((value) => value.prototypeUrl.length > 0, {
+  path: ["prototypeUrl"],
+  message: "Добавьте ссылку на прототип",
+});
 
 const steps = [
   ["brief", "Описание"],
@@ -134,7 +139,7 @@ export function DemoFlow() {
             <span className="text-xl font-black tracking-tight">EvoMind</span>
           </button>
           <div className="hidden items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-xs font-semibold text-ink/60 md:flex">
-            <span className="size-2 rounded-full bg-green-500" /> API-режим · данные сервера
+            <span className="size-2 rounded-full bg-ink/30" /> API-режим
           </div>
           <Button variant="outline" size="sm" onClick={() => setScreen("catalog")}>Каталог задач</Button>
         </div>
@@ -206,7 +211,7 @@ function BriefScreen({ mutation }: { mutation: ReturnType<typeof useMutation<Cla
             <Textarea aria-label="Описание задачи" rows={7} {...register("description")} />
             {errors.description && <FieldError>{errors.description.message}</FieldError>}
             {mutation.isError && (
-              <div role="alert" className="flex items-start gap-3 rounded-2xl bg-red-50 p-4 text-sm text-red-800"><CircleAlert className="mt-0.5 shrink-0" size={18} /><span>{mutation.error.message}. Измените текст или попробуйте ещё раз.</span></div>
+              <div role="alert" className="flex items-start gap-3 rounded-2xl bg-red-50 p-4 text-sm text-red-800"><CircleAlert className="mt-0.5 shrink-0" size={18} /><span>{mutation.error.message} Введённое описание сохранено — можно повторить запрос.</span></div>
             )}
             <Button className="w-full" variant="accent" size="lg" disabled={mutation.isPending}>
               {mutation.isPending ? <><Loader2 className="animate-spin" size={18} /> Анализируем описание…</> : <>Найти пробелы <ArrowRight size={18} /></>}
@@ -242,12 +247,12 @@ function QuestionsScreen({ result, answers, setAnswers, onBack, onContinue }: { 
 }
 
 function EditorScreen({ task, previousScore, save, publish, onBack }: { task: TaskCard; previousScore: number | null; save: ReturnType<typeof useMutation<TaskCard, Error, TaskEditorValues>>; publish: ReturnType<typeof useMutation<TaskCard, Error, TaskCard>>; onBack: () => void }) {
-  const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm<TaskEditorValues>({ resolver: zodResolver(taskEditorSchema), defaultValues: pickEditorValues(task) });
+  const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm<TaskEditorValues>({ resolver: zodResolver(draftEditorSchema), defaultValues: pickEditorValues(task) });
   const displayed = save.data ?? task;
   const submit = (values: TaskEditorValues) => save.mutate(values, { onSuccess: (result) => reset(pickEditorValues(result)) });
   return (
     <section className="py-2">
-      <div className="mb-7"><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 3 · редактор</p><h1 className="mt-2 text-4xl font-black tracking-tight">Проверьте каждое утверждение</h1><p className="mt-2 text-ink/55">Рейтинг приходит готовым с сервера и меняется только после сохранения подтверждённых данных.</p></div>
+      <div className="mb-7"><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 3 · редактор</p><h1 className="mt-2 text-4xl font-black tracking-tight">Проверьте каждое утверждение</h1><p className="mt-2 text-ink/55">Можно сохранить неполный черновик: сервер покажет первый рейтинг и подскажет, какие поля добавить. Рейтинг меняется только после сохранения подтверждённых данных.</p></div>
       <div className="grid gap-7 lg:grid-cols-[1fr_360px]">
         <Card><CardContent><form id="editor-form" className="grid gap-5 md:grid-cols-2" onSubmit={handleSubmit(submit)}>
           {(Object.keys(fieldLabels) as (keyof TaskEditorValues)[]).map((name) => (
@@ -311,9 +316,9 @@ function TaskTile({ task, onRespond }: { task: TaskCard; onRespond: () => void }
 
 function ProposalScreen({ task, onBack, onSubmitted }: { task: TaskCard; onBack: () => void; onSubmitted: () => void }) {
   const queryClient = useQueryClient();
-  const { register, handleSubmit, formState: { errors } } = useForm<ProposalInput>({ resolver: zodResolver(proposalInputSchema), defaultValues: { teamId: "team-1", solutionIdea: "Классификатор с подтверждением оператора и объяснением уверенности.", plan: "Аудит данных, baseline, интерфейс проверки, пилот и оценка метрик.", timeline: "4 недели", prototypeUrl: "https://example.com/prototype" } });
+  const { register, handleSubmit, formState: { errors } } = useForm<ProposalInput>({ resolver: zodResolver(proposalFormSchema), defaultValues: { teamId: "team-1", solutionIdea: "Классификатор с подтверждением оператора и объяснением уверенности.", plan: "Аудит данных, baseline, интерфейс проверки, пилот и оценка метрик.", timeline: "4 недели", prototypeUrl: "https://example.com/prototype" } });
   const create = useMutation({ mutationFn: (values: ProposalInput) => api.createProposal(task.id, values), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["proposals", task.id] }); onSubmitted(); } });
-  return <section className="mx-auto max-w-5xl"><Button variant="ghost" onClick={onBack}><ArrowLeft size={16} /> К каталогу</Button><div className="mt-4 grid gap-7 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 5 · отклик</p><h1 className="mt-2 text-3xl font-black">{task.title}</h1><p className="mt-4 leading-7 text-ink/60">{task.need}</p><div className="mt-5 rounded-3xl bg-ink p-6 text-white"><p className="text-sm font-bold text-white/50">Рейтинг задачи</p><p className="mt-1 text-5xl font-black">{task.score}</p><p className="mt-2 text-sm text-lime">{readinessLabels[task.readinessLevel]}</p></div></div><Card><CardContent><h2 className="text-2xl font-black">Расскажите, как решите задачу</h2><form className="mt-6 space-y-4" onSubmit={handleSubmit((values) => create.mutate(values))}><FormField label="Команда (демо-ID: team-1…team-5)" error={errors.teamId?.message}><Input {...register("teamId")} /></FormField><FormField label="Идея решения" error={errors.solutionIdea?.message}><Textarea {...register("solutionIdea")} /></FormField><FormField label="План" error={errors.plan?.message}><Textarea {...register("plan")} /></FormField><div className="grid gap-4 md:grid-cols-2"><FormField label="Срок" error={errors.timeline?.message}><Input {...register("timeline")} /></FormField><FormField label="Прототип (необязательно)" error={errors.prototypeUrl?.message}><Input {...register("prototypeUrl")} /></FormField></div>{create.isError && <ErrorBox message={create.error.message} />}<Button className="w-full" variant="accent" disabled={create.isPending}>{create.isPending ? <><Loader2 className="animate-spin" size={17} /> Отправляем…</> : <><Send size={17} /> Отправить отклик</>}</Button></form></CardContent></Card></div></section>;
+  return <section className="mx-auto max-w-5xl"><Button variant="ghost" onClick={onBack}><ArrowLeft size={16} /> К каталогу</Button><div className="mt-4 grid gap-7 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 5 · отклик</p><h1 className="mt-2 text-3xl font-black">{task.title}</h1><p className="mt-4 leading-7 text-ink/60">{task.need}</p><div className="mt-5 rounded-3xl bg-ink p-6 text-white"><p className="text-sm font-bold text-white/50">Рейтинг задачи</p><p className="mt-1 text-5xl font-black">{task.score}</p><p className="mt-2 text-sm text-lime">{readinessLabels[task.readinessLevel]}</p></div></div><Card><CardContent><h2 className="text-2xl font-black">Расскажите, как решите задачу</h2><form className="mt-6 space-y-4" onSubmit={handleSubmit((values) => create.mutate(values))}><FormField label="Команда (демо-ID: team-1…team-5)" error={errors.teamId?.message}><Input {...register("teamId")} /></FormField><FormField label="Идея решения" error={errors.solutionIdea?.message}><Textarea {...register("solutionIdea")} /></FormField><FormField label="План" error={errors.plan?.message}><Textarea {...register("plan")} /></FormField><div className="grid gap-4 md:grid-cols-2"><FormField label="Срок" error={errors.timeline?.message}><Input {...register("timeline")} /></FormField><FormField label="Ссылка на прототип" error={errors.prototypeUrl?.message}><Input {...register("prototypeUrl")} /></FormField></div>{create.isError && <ErrorBox message={create.error.message} />}<Button className="w-full" variant="accent" disabled={create.isPending}>{create.isPending ? <><Loader2 className="animate-spin" size={17} /> Отправляем…</> : <><Send size={17} /> Отправить отклик</>}</Button></form></CardContent></Card></div></section>;
 }
 
 function DecisionsScreen({ task, onBack }: { task: TaskCard; onBack: () => void }) {

@@ -56,6 +56,9 @@ async function request(path: string, init?: RequestInit) {
     if (parsed.success) {
       throw new ApiRequestError(parsed.data.error.message, parsed.data.error.code, response.status, parsed.data.error.details);
     }
+    if (response.status >= 500) {
+      throw new ApiRequestError("Сервис временно недоступен. Повторите попытку.", "SERVICE_UNAVAILABLE", response.status, payload);
+    }
     throw new ApiRequestError(`Сервер вернул ошибку ${response.status}`, "HTTP_ERROR", response.status, payload);
   }
   return payload;
