@@ -2,9 +2,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockApi } from "@/lib/mock-api";
 import { DemoFlow } from "./demo-flow";
+
+vi.mock("@/lib/api", async () => {
+  const { mockApi: adapter } = await import("@/lib/mock-api");
+  return { api: adapter };
+});
 
 function renderFlow() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -35,7 +40,7 @@ describe("DemoFlow", () => {
     await user.type(answers[2]!, "Сократить время на 30 процентов");
     await user.click(screen.getByRole("button", { name: /собрать карточку/i }));
     expect(await screen.findByText("Проверьте каждое утверждение")).toBeInTheDocument();
-    expect(screen.getByText("48")).toBeInTheDocument();
+    expect(screen.getByText("Рейтинг рассчитает сервер")).toBeInTheDocument();
   });
 
   it("shows all catalog tasks and filters to an empty state", async () => {

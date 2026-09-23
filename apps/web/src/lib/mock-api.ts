@@ -8,20 +8,21 @@ import {
   type TaskEditorValues,
 } from "@evomind/contracts";
 import { clarificationFixture, initialProposal, strongDraft, taskFixtures, weakDraft } from "./fixtures";
+import type { EvoMindApi, TaskQuery } from "./api-client";
 
 const wait = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
 let catalog = [...taskFixtures];
 let proposals: Proposal[] = [];
 
-export const mockApi = {
+export const mockApi: EvoMindApi & { reset(): void; getInitialDraft(): TaskCard } = {
   async analyze(description: string) {
     await wait();
     if (description.toLowerCase().includes("ошибка")) throw new Error("Сервис анализа временно недоступен");
     return clarificationResultSchema.parse(clarificationFixture);
   },
-  async saveTask(values: TaskEditorValues) {
+  async saveTask(values: TaskEditorValues, taskId?: string) {
     await wait();
-    return taskCardSchema.parse({ ...strongDraft, ...values });
+    return taskCardSchema.parse({ ...strongDraft, ...values, id: taskId ?? strongDraft.id });
   },
   async publishTask(task: TaskCard) {
     await wait();
@@ -29,9 +30,13 @@ export const mockApi = {
     catalog = [published, ...catalog.filter((item) => item.id !== published.id)];
     return published;
   },
-  async listTasks() {
+  async listTasks(query: TaskQuery = {}) {
     await wait(250);
-    return taskCardSchema.array().parse(catalog);
+    const result = catalog
+      .filter((task) => !query.topic || task.topic === query.topic)
+      .filter((task) => !query.readiness || task.readinessLevel === query.readiness)
+      .sort((a, b) => query.sort === "score_asc" ? a.score - b.score : b.score - a.score);
+    return taskCardSchema.array().parse(result);
   },
   async createProposal(taskId: string, values: ProposalInput) {
     await wait();

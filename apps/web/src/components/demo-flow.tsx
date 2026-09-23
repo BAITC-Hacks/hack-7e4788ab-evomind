@@ -35,7 +35,7 @@ import React from "react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { mockApi } from "@/lib/mock-api";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -89,7 +89,7 @@ export function DemoFlow() {
   const [selectedTask, setSelectedTask] = useState<TaskCard | null>(null);
 
   const analyze = useMutation({
-    mutationFn: (description: string) => mockApi.analyze(description),
+    mutationFn: (description: string) => api.analyze(description),
     onSuccess: (result) => {
       setClarification(result);
       setScreen("questions");
@@ -97,12 +97,12 @@ export function DemoFlow() {
   });
 
   const save = useMutation({
-    mutationFn: mockApi.saveTask,
+    mutationFn: (values: TaskEditorValues) => api.saveTask(values, task?.id || undefined),
     onSuccess: (saved) => setTask(saved),
   });
 
   const publish = useMutation({
-    mutationFn: mockApi.publishTask,
+    mutationFn: api.publishTask,
     onSuccess: async (published) => {
       setTask(published);
       setSelectedTask(published);
@@ -117,7 +117,7 @@ export function DemoFlow() {
     for (const question of clarification.questions) {
       if (answers[question.id]?.trim()) suggestion[question.field] = answers[question.id]!.trim();
     }
-    setTask({ ...mockApi.getInitialDraft(), ...suggestion });
+    setTask(createTransientDraft(suggestion));
     setScreen("editor");
   };
 
@@ -146,7 +146,7 @@ export function DemoFlow() {
           <EditorScreen task={task} save={save} publish={publish} onBack={() => setScreen("questions")} />
         )}
         {screen === "catalog" && (
-          <CatalogScreen currentTask={task?.status === "published" ? task : null} onRespond={(card) => { setSelectedTask(card); setScreen("proposal"); }} />
+          <CatalogScreen onRespond={(card) => { setSelectedTask(card); setScreen("proposal"); }} />
         )}
         {screen === "proposal" && selectedTask && (
           <ProposalScreen task={selectedTask} onBack={() => setScreen("catalog")} onSubmitted={() => setScreen("decisions")} />
@@ -254,7 +254,7 @@ function EditorScreen({ task, save, publish, onBack }: { task: TaskCard; save: R
           ))}
         </form></CardContent></Card>
         <div className="space-y-5 lg:sticky lg:top-6 lg:self-start">
-          <ScoreCard task={displayed} />
+          {save.data ? <ScoreCard task={displayed} /> : <Card className="shadow-none"><CardContent><BarChart3 className="text-coral" /><h2 className="mt-4 text-xl font-black">Рейтинг рассчитает сервер</h2><p className="mt-2 text-sm leading-6 text-ink/55">Сохраните подтверждённые данные — мы покажем полученный score, breakdown и рекомендации.</p></CardContent></Card>}
           {save.isError && <ErrorBox message={save.error.message} />}
           {publish.isError && <ErrorBox message={publish.error.message} />}
           <Button form="editor-form" className="w-full" disabled={save.isPending}>{save.isPending ? <><Loader2 className="animate-spin" size={17} /> Сохраняем…</> : <><RefreshCw size={17} /> Сохранить и обновить рейтинг</>}</Button>
@@ -281,21 +281,21 @@ function ScoreCard({ task }: { task: TaskCard }) {
   );
 }
 
-function CatalogScreen({ currentTask, onRespond }: { currentTask: TaskCard | null; onRespond: (task: TaskCard) => void }) {
+function CatalogScreen({ onRespond }: { onRespond: (task: TaskCard) => void }) {
   const [topic, setTopic] = useState("all");
   const [readiness, setReadiness] = useState("all");
   const [sort, setSort] = useState("score_desc");
-  const tasks = useQuery({ queryKey: ["tasks"], queryFn: mockApi.listTasks });
-  const allTasks = useMemo(() => {
-    const values = [...(tasks.data ?? [])];
-    if (currentTask && !values.some((item) => item.id === currentTask.id)) values.unshift(currentTask);
-    return values;
-  }, [tasks.data, currentTask]);
-  const topics = [...new Set(allTasks.map((task) => task.topic))];
-  const visible = allTasks.filter((task) => topic === "all" || task.topic === topic).filter((task) => readiness === "all" || task.readinessLevel === readiness).sort((a, b) => sort === "score_desc" ? b.score - a.score : a.score - b.score);
+  const query = {
+    topic: topic === "all" ? undefined : topic,
+    readiness: readiness === "all" ? undefined : readiness as ReadinessLevel,
+    sort: sort as "score_asc" | "score_desc",
+  };
+  const tasks = useQuery({ queryKey: ["tasks", query], queryFn: () => api.listTasks(query) });
+  const visible = tasks.data ?? [];
+  const topics = ["Клиентский сервис", "Транспорт", "Энергетика", "Ритейл", "HR", "Агротех"];
   return (
-    <section><div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 4 · каталог</p><h1 className="mt-2 text-4xl font-black tracking-tight">Задачи, которым нужны команды</h1><p className="mt-2 text-ink/55">Низкий рейтинг не скрывает задачу — он показывает, что стоит уточнить.</p></div><div className="flex items-center gap-2 text-sm font-bold"><Users size={17} /> {allTasks.length} задач</div></div>
-      <div className="mt-7 grid gap-3 rounded-3xl border border-ink/10 bg-white p-4 md:grid-cols-3"><SelectControl label="Тема" icon={<Filter size={15} />} value={topic} onChange={setTopic} options={[...topics.map((item) => [item, item] as const)]} /><SelectControl label="Готовность" value={readiness} onChange={setReadiness} options={Object.entries(readinessLabels)} /><SelectControl label="Сортировка" value={sort} onChange={setSort} options={[["score_desc", "Сначала высокий рейтинг"], ["score_asc", "Сначала низкий рейтинг"]]} /></div>
+    <section><div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 4 · каталог</p><h1 className="mt-2 text-4xl font-black tracking-tight">Задачи, которым нужны команды</h1><p className="mt-2 text-ink/55">Низкий рейтинг не скрывает задачу — он показывает, что стоит уточнить.</p></div><div className="flex items-center gap-2 text-sm font-bold"><Users size={17} /> {visible.length} задач</div></div>
+      <div className="mt-7 grid gap-3 rounded-3xl border border-ink/10 bg-white p-4 md:grid-cols-3"><SelectControl label="Тема" icon={<Filter size={15} />} value={topic} onChange={setTopic} options={topics.map((item) => [item, item] as const)} /><SelectControl label="Готовность" value={readiness} onChange={setReadiness} options={Object.entries(readinessLabels)} /><SelectControl label="Сортировка" includeAll={false} value={sort} onChange={setSort} options={[["score_desc", "Сначала высокий рейтинг"], ["score_asc", "Сначала низкий рейтинг"]]} /></div>
       {tasks.isPending ? <LoadingCards /> : tasks.isError ? <div className="mt-7"><ErrorBox message="Не удалось загрузить каталог" /><Button className="mt-4" onClick={() => tasks.refetch()}>Повторить</Button></div> : visible.length === 0 ? <EmptyState onReset={() => { setTopic("all"); setReadiness("all"); }} /> : <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{visible.map((card) => <TaskTile key={card.id} task={card} onRespond={() => onRespond(card)} />)}</div>}
     </section>
   );
@@ -308,19 +308,19 @@ function TaskTile({ task, onRespond }: { task: TaskCard; onRespond: () => void }
 function ProposalScreen({ task, onBack, onSubmitted }: { task: TaskCard; onBack: () => void; onSubmitted: () => void }) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, formState: { errors } } = useForm<ProposalInput>({ resolver: zodResolver(proposalInputSchema), defaultValues: { teamId: "Команда Orbit", solutionIdea: "Классификатор с подтверждением оператора и объяснением уверенности.", plan: "Аудит данных, baseline, интерфейс проверки, пилот и оценка метрик.", timeline: "4 недели", prototypeUrl: "https://example.com/prototype" } });
-  const create = useMutation({ mutationFn: (values: ProposalInput) => mockApi.createProposal(task.id, values), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["proposals", task.id] }); onSubmitted(); } });
+  const create = useMutation({ mutationFn: (values: ProposalInput) => api.createProposal(task.id, values), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["proposals", task.id] }); onSubmitted(); } });
   return <section className="mx-auto max-w-5xl"><Button variant="ghost" onClick={onBack}><ArrowLeft size={16} /> К каталогу</Button><div className="mt-4 grid gap-7 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 5 · отклик</p><h1 className="mt-2 text-3xl font-black">{task.title}</h1><p className="mt-4 leading-7 text-ink/60">{task.need}</p><div className="mt-5 rounded-3xl bg-ink p-6 text-white"><p className="text-sm font-bold text-white/50">Рейтинг задачи</p><p className="mt-1 text-5xl font-black">{task.score}</p><p className="mt-2 text-sm text-lime">{readinessLabels[task.readinessLevel]}</p></div></div><Card><CardContent><h2 className="text-2xl font-black">Расскажите, как решите задачу</h2><form className="mt-6 space-y-4" onSubmit={handleSubmit((values) => create.mutate(values))}><FormField label="Команда" error={errors.teamId?.message}><Input {...register("teamId")} /></FormField><FormField label="Идея решения" error={errors.solutionIdea?.message}><Textarea {...register("solutionIdea")} /></FormField><FormField label="План" error={errors.plan?.message}><Textarea {...register("plan")} /></FormField><div className="grid gap-4 md:grid-cols-2"><FormField label="Срок" error={errors.timeline?.message}><Input {...register("timeline")} /></FormField><FormField label="Прототип (необязательно)" error={errors.prototypeUrl?.message}><Input {...register("prototypeUrl")} /></FormField></div>{create.isError && <ErrorBox message={create.error.message} />}<Button className="w-full" variant="accent" disabled={create.isPending}>{create.isPending ? <><Loader2 className="animate-spin" size={17} /> Отправляем…</> : <><Send size={17} /> Отправить отклик</>}</Button></form></CardContent></Card></div></section>;
 }
 
 function DecisionsScreen({ task, onBack }: { task: TaskCard; onBack: () => void }) {
   const queryClient = useQueryClient();
-  const proposals = useQuery({ queryKey: ["proposals", task.id], queryFn: () => mockApi.listProposals(task.id) });
-  const decide = useMutation({ mutationFn: ({ id, status }: { id: string; status: "accepted" | "rejected" }) => mockApi.setProposalStatus(id, status), onSuccess: (updated) => queryClient.setQueryData<Proposal[]>(["proposals", task.id], (old = []) => old.map((item) => item.id === updated.id ? updated : item)) });
+  const proposals = useQuery({ queryKey: ["proposals", task.id], queryFn: () => api.listProposals(task.id) });
+  const decide = useMutation({ mutationFn: ({ id, status }: { id: string; status: "accepted" | "rejected" }) => api.setProposalStatus(id, status), onSuccess: (updated) => queryClient.setQueryData<Proposal[]>(["proposals", task.id], (old = []) => old.map((item) => item.id === updated.id ? updated : item)) });
   return <section className="mx-auto max-w-5xl"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 6 · решение бизнеса</p><h1 className="mt-2 text-4xl font-black">Решение остаётся за человеком</h1><p className="mt-2 text-ink/55">EvoMind не назначает команду автоматически. Можно принять несколько предложений.</p></div><Button variant="outline" onClick={onBack}>Вернуться в каталог</Button></div>{proposals.isPending ? <LoadingCards /> : proposals.isError ? <ErrorBox message="Не удалось загрузить отклики" /> : proposals.data?.length === 0 ? <EmptyState /> : <div className="mt-7 space-y-5">{proposals.data?.map((proposal) => <Card key={proposal.id} className="shadow-none"><CardContent><div className="flex flex-col justify-between gap-5 md:flex-row"><div className="max-w-2xl"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-mint"><Users size={19} /></span><div><h2 className="font-black">{proposal.teamId}</h2><p className="text-xs text-ink/45">Отклик на «{task.title}»</p></div></div><p className="mt-5 font-semibold">{proposal.solutionIdea}</p><p className="mt-3 text-sm leading-6 text-ink/55">{proposal.plan}</p><div className="mt-4 flex gap-5 text-xs font-bold text-ink/50"><span className="flex items-center gap-1"><Clock3 size={14} /> {proposal.timeline}</span>{proposal.prototypeUrl && <a className="underline" href={proposal.prototypeUrl}>Прототип</a>}</div></div><div className="min-w-48">{proposal.status === "pending" ? <div className="space-y-2"><Button className="w-full" variant="accent" onClick={() => decide.mutate({ id: proposal.id, status: "accepted" })}>Принять</Button><Button className="w-full" variant="outline" onClick={() => decide.mutate({ id: proposal.id, status: "rejected" })}>Отклонить</Button></div> : <div role="status" className={cn("rounded-2xl p-4 text-center text-sm font-black", proposal.status === "accepted" ? "bg-green-100 text-green-800" : "bg-red-50 text-red-700")}>{proposal.status === "accepted" ? "Предложение принято" : "Предложение отклонено"}</div>}</div></div></CardContent></Card>)}</div>}</section>;
 }
 
-function SelectControl({ label, icon, value, onChange, options }: { label: string; icon?: React.ReactNode; value: string; onChange: (value: string) => void; options: readonly (readonly [string, string])[] }) {
-  return <label className="flex items-center gap-3 rounded-2xl bg-cream px-4 py-2"><span className="text-ink/40">{icon}</span><span className="sr-only">{label}</span><select aria-label={label} className="w-full bg-transparent py-2 text-sm font-bold outline-none" value={value} onChange={(event) => onChange(event.target.value)}><option value="all">Все · {label.toLowerCase()}</option>{options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>;
+function SelectControl({ label, icon, value, onChange, options, includeAll = true }: { label: string; icon?: React.ReactNode; value: string; onChange: (value: string) => void; options: readonly (readonly [string, string])[]; includeAll?: boolean }) {
+  return <label className="flex items-center gap-3 rounded-2xl bg-cream px-4 py-2"><span className="text-ink/40">{icon}</span><span className="sr-only">{label}</span><select aria-label={label} className="w-full bg-transparent py-2 text-sm font-bold outline-none" value={value} onChange={(event) => onChange(event.target.value)}>{includeAll && <option value="all">Все · {label.toLowerCase()}</option>}{options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>;
 }
 
 function FormField({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) { return <div><Label>{label}</Label><div className="mt-2">{children}</div>{error && <FieldError>{error}</FieldError>}</div>; }
@@ -332,4 +332,26 @@ function EmptyState({ onReset }: { onReset?: () => void }) { return <div classNa
 function pickEditorValues(task: TaskCard): TaskEditorValues {
   const { title, context, need, users, data, constraints, expectedResult, successCriteria, contact, interactionFormat, topic } = task;
   return { title, context, need, users, data, constraints, expectedResult, successCriteria, contact, interactionFormat, topic };
+}
+
+function createTransientDraft(values: Partial<TaskEditorValues>): TaskCard {
+  return {
+    id: "",
+    status: "draft",
+    title: values.title ?? "",
+    context: values.context ?? "",
+    need: values.need ?? "",
+    users: values.users ?? "",
+    data: values.data ?? "",
+    constraints: values.constraints ?? "",
+    expectedResult: values.expectedResult ?? "",
+    successCriteria: values.successCriteria ?? "",
+    contact: values.contact ?? "",
+    interactionFormat: values.interactionFormat ?? "",
+    topic: values.topic ?? "",
+    score: 0,
+    readinessLevel: "draft",
+    scoreBreakdown: { contextAndNeed: 0, data: 0, expectedResult: 0, successCriteria: 0, constraints: 0, users: 0, businessContact: 0 },
+    missingFields: [],
+  };
 }
