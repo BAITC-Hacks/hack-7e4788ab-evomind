@@ -23,7 +23,7 @@ describe('domain API', () => {
   beforeAll(async () => {
     rmSync(databasePath, { force: true });
     process.env.DATABASE_URL = databasePath;
-    delete process.env.AI_API_URL;
+    delete process.env.OPENAI_API_KEY;
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = configureApp(moduleRef.createNestApplication());
     await app.init();
@@ -60,9 +60,9 @@ describe('domain API', () => {
 
   it('creates, enriches and publishes a draft with a transparent recalculation', async () => {
     const weak = await request(app.getHttpServer()).post('/api/tasks').send({
-      ...fullInput, need: '', data: '', constraints: '', expectedResult: '', successCriteria: '', users: '', contact: '', interactionFormat: '',
+      ...fullInput, data: '', constraints: '', expectedResult: '', successCriteria: '', users: '', contact: '', interactionFormat: '',
     }).expect(201);
-    expect(weak.body.score).toBe(0);
+    expect(weak.body.score).toBe(20);
     expect(weak.body.status).toBe('draft');
     expect(weak.body.missingFields).toContain('data');
     const enriched = await request(app.getHttpServer()).patch(`/api/tasks/${weak.body.id}`).send(fullInput).expect(200);
@@ -75,7 +75,7 @@ describe('domain API', () => {
 
   it('keeps low-score publications visible and supports sorting and filters', async () => {
     const low = await request(app.getHttpServer()).post('/api/tasks').send({
-      ...fullInput, topic: 'retail', need: '', data: '', expectedResult: '', successCriteria: '', constraints: '', users: '', contact: '', interactionFormat: '',
+      ...fullInput, topic: 'retail', data: '', expectedResult: '', successCriteria: '', constraints: '', users: '', contact: '', interactionFormat: '',
     }).expect(201);
     expect(low.body.score).toBeLessThan(40);
     await request(app.getHttpServer()).post(`/api/tasks/${low.body.id}/publish`).expect(201);
@@ -110,6 +110,11 @@ describe('domain API', () => {
   it('uses the canonical envelope for invalid input and missing resources', async () => {
     const invalid = await request(app.getHttpServer()).post('/api/tasks/analyze').send({ description: '' }).expect(400);
     expect(invalid.body.error.code).toBe('VALIDATION_ERROR');
+    const emptyTask = await request(app.getHttpServer()).post('/api/tasks').send({
+      title: '', context: '', need: '', users: '', data: '', constraints: '', expectedResult: '',
+      successCriteria: '', contact: '', interactionFormat: '', topic: '',
+    }).expect(400);
+    expect(emptyTask.body.error.code).toBe('VALIDATION_ERROR');
     const missing = await request(app.getHttpServer()).post('/api/tasks/not-found/publish').expect(404);
     expect(missing.body.error.code).toBe('TASK_NOT_FOUND');
   });
