@@ -229,7 +229,11 @@ function QuestionsScreen({ result, answers, setAnswers, onBack, onContinue }: { 
     <section className="mx-auto max-w-4xl py-4">
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div><p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 2 · уточнения</p><h1 className="mt-2 text-4xl font-black tracking-tight">Три ответа — и задача станет конкретнее</h1></div>
-        <span className="rounded-full bg-amber-100 px-4 py-2 text-xs font-bold text-amber-900">Fallback-режим · результат нужно проверить</span>
+        {result.mode === "ai" ? (
+          <span className="rounded-full bg-lime/70 px-4 py-2 text-xs font-bold text-ink">AI-режим · вопросы сгенерированы моделью</span>
+        ) : (
+          <span className="rounded-full bg-amber-100 px-4 py-2 text-xs font-bold text-amber-900">Fallback-режим · результат нужно проверить</span>
+        )}
       </div>
       {result.warnings.map((warning) => <p key={warning} className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{warning}</p>)}
       <div className="mt-7 space-y-4">
