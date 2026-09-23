@@ -203,7 +203,6 @@ function BriefScreen({ mutation }: { mutation: ReturnType<typeof useMutation<Cla
         </div>
       </div>
       <Card className="relative overflow-hidden">
-        <div className="absolute right-0 top-0 size-32 translate-x-10 -translate-y-10 rounded-full bg-lime/70 blur-2xl" />
         <CardContent className="relative">
           <p className="text-xs font-black uppercase tracking-[.2em] text-ink/45">Шаг 1 · сырой бриф</p>
           <h2 className="mt-2 text-2xl font-black">Что вы хотите улучшить?</h2>
