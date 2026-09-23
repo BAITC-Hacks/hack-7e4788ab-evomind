@@ -56,4 +56,14 @@ describe("httpApi", () => {
       status: 0,
     }));
   });
+
+  it("turns a proxy 500 into a friendly retryable service error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Internal Server Error", { status: 500 })));
+
+    await expect(httpApi.listTasks()).rejects.toEqual(expect.objectContaining({
+      code: "SERVICE_UNAVAILABLE",
+      status: 500,
+      message: "Сервис временно недоступен. Повторите попытку.",
+    }));
+  });
 });
