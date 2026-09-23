@@ -270,8 +270,8 @@ function EditorScreen({ task, save, publish, onBack }: { task: TaskCard; save: R
 }
 
 function ScoreCard({ task }: { task: TaskCard }) {
-  const breakdownLabels: Record<keyof TaskCard["scoreBreakdown"], string> = { context: "Контекст", need: "Потребность", data: "Данные", expectedResult: "Результат", successCriteria: "Критерии", constraints: "Ограничения", usersAndContact: "Пользователи и связь" };
-  const max: Record<keyof TaskCard["scoreBreakdown"], number> = { context: 20, need: 20, data: 20, expectedResult: 15, successCriteria: 15, constraints: 10, usersAndContact: 10 };
+  const breakdownLabels: Record<keyof TaskCard["scoreBreakdown"], string> = { contextAndNeed: "Контекст и потребность", data: "Данные", expectedResult: "Результат", successCriteria: "Критерии", constraints: "Ограничения", users: "Пользователи", businessContact: "Связь с бизнесом" };
+  const max: Record<keyof TaskCard["scoreBreakdown"], number> = { contextAndNeed: 20, data: 20, expectedResult: 15, successCriteria: 15, constraints: 10, users: 10, businessContact: 10 };
   return (
     <Card className="overflow-hidden"><div className="bg-ink p-6 text-white"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-white/50">Рейтинг готовности</p><p className="mt-2 text-6xl font-black">{task.score}<span className="text-xl text-white/35">/100</span></p></div><span className="rounded-full bg-lime px-3 py-2 text-xs font-black text-ink">{readinessLabels[task.readinessLevel]}</span></div></div>
       <CardContent className="space-y-3 p-6">{Object.entries(task.scoreBreakdown).map(([key, value]) => <div key={key}><div className="mb-1 flex justify-between text-xs font-semibold"><span>{breakdownLabels[key as keyof typeof breakdownLabels]}</span><span>{value}/{max[key as keyof typeof max]}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-ink/10"><div className="h-full rounded-full bg-coral" style={{ width: `${(value / max[key as keyof typeof max]) * 100}%` }} /></div></div>)}

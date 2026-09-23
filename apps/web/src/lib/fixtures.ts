@@ -24,7 +24,7 @@ const cards = [
     topic: "Транспорт",
     score: 94,
     readinessLevel: "priority",
-    scoreBreakdown: { context: 20, need: 20, data: 19, expectedResult: 15, successCriteria: 15, constraints: 8, usersAndContact: 7 },
+    scoreBreakdown: { contextAndNeed: 20, data: 19, expectedResult: 15, successCriteria: 15, constraints: 8, users: 7, businessContact: 7 },
     missingFields: [],
   },
   {
@@ -43,7 +43,7 @@ const cards = [
     topic: "Энергетика",
     score: 86,
     readinessLevel: "ready",
-    scoreBreakdown: { context: 18, need: 18, data: 18, expectedResult: 13, successCriteria: 12, constraints: 4, usersAndContact: 3 },
+    scoreBreakdown: { contextAndNeed: 18, data: 18, expectedResult: 13, successCriteria: 12, constraints: 4, users: 3, businessContact: 3 },
     missingFields: [],
   },
   {
@@ -62,7 +62,7 @@ const cards = [
     topic: "Ритейл",
     score: 73,
     readinessLevel: "ready",
-    scoreBreakdown: { context: 15, need: 16, data: 14, expectedResult: 11, successCriteria: 10, constraints: 4, usersAndContact: 3 },
+    scoreBreakdown: { contextAndNeed: 16, data: 14, expectedResult: 11, successCriteria: 10, constraints: 4, users: 3, businessContact: 3 },
     missingFields: ["Детализировать формат выгрузки"],
   },
   {
@@ -81,7 +81,7 @@ const cards = [
     topic: "HR",
     score: 61,
     readinessLevel: "workable",
-    scoreBreakdown: { context: 14, need: 15, data: 12, expectedResult: 10, successCriteria: 3, constraints: 4, usersAndContact: 3 },
+    scoreBreakdown: { contextAndNeed: 14, data: 12, expectedResult: 10, successCriteria: 3, constraints: 4, users: 3, businessContact: 3 },
     missingFields: ["Уточнить измеримый критерий успеха"],
   },
   {
@@ -100,7 +100,7 @@ const cards = [
     topic: "Агротех",
     score: 37,
     readinessLevel: "draft",
-    scoreBreakdown: { context: 10, need: 10, data: 3, expectedResult: 6, successCriteria: 1, constraints: 0, usersAndContact: 7 },
+    scoreBreakdown: { contextAndNeed: 10, data: 3, expectedResult: 6, successCriteria: 1, constraints: 0, users: 7, businessContact: 7 },
     missingFields: ["Подтвердить источник данных", "Зафиксировать ограничения", "Добавить метрику успеха"],
   },
 ] satisfies TaskCard[];
@@ -143,7 +143,7 @@ export const weakDraft = taskCardSchema.parse({
   topic: "Клиентский сервис",
   score: 48,
   readinessLevel: "workable",
-  scoreBreakdown: { context: 10, need: 11, data: 6, expectedResult: 8, successCriteria: 4, constraints: 4, usersAndContact: 5 },
+  scoreBreakdown: { contextAndNeed: 10, data: 6, expectedResult: 8, successCriteria: 4, constraints: 4, users: 5, businessContact: 5 },
   missingFields: ["Уточнить объём и формат данных", "Добавить числовую метрику успеха"],
 });
 
@@ -151,7 +151,7 @@ export const strongDraft = taskCardSchema.parse({
   ...weakDraft,
   score: 88,
   readinessLevel: "ready",
-  scoreBreakdown: { context: 18, need: 18, data: 17, expectedResult: 13, successCriteria: 12, constraints: 5, usersAndContact: 5 },
+  scoreBreakdown: { contextAndNeed: 18, data: 17, expectedResult: 13, successCriteria: 12, constraints: 5, users: 5, businessContact: 5 },
   missingFields: ["Уточнить срок пилота"],
 });
 
